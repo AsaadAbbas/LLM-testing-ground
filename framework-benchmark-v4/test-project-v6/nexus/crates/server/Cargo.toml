@@ -1,0 +1,18 @@
+[package]
+name = "nexus-server"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+nexus-core = { path = "../core" }
+nexus-pipeline = { path = "../pipeline" }
+nexus-plugins = { path = "../plugins" }
+nexus-config = { path = "../config" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = "0.3"
+async-trait = { workspace = true }
+uuid = { workspace = true }

@@ -1,0 +1,20 @@
+{
+  "name": "chronokv-cli",
+  "version": "0.1.0",
+  "description": "CLI tool for ChronoKV",
+  "main": "dist/index.js",
+  "bin": {
+    "chronokv": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "chronokv-sdk": "file:../sdk",
+    "commander": "^12.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "@types/node": "^20.10.0"
+  }
+}

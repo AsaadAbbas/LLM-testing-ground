@@ -1,0 +1,12 @@
+[package]
+name = "cratesync-resolver"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+cratesync-core = { path = "../core" }
+tokio = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full", "test-util"] }

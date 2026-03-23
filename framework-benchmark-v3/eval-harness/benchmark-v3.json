@@ -1,0 +1,118 @@
+{
+  "benchmark_name": "framework-pipeline-v3",
+  "description": "3-way pipeline eval: Full v4 (Atomic+CLAUDE.md+GSD) vs Raw GSD vs Dry CLAUDE.md v1. CrateSync: Rust+TypeScript cross-language brownfield project.",
+  "version": "3.0.0",
+  "difficulty": "FeatureBench-zone (25-40% expected pass rate)",
+  "test_project": "CrateSync — Rust backend + TypeScript CLI for package registry sync",
+  "research_basis": [
+    "FeatureBench (ICLR 2026): 11% pass for Claude Opus 4.5 on complex features",
+    "ProjDevBench (Feb 2026): 27% overall acceptance on full-pipeline tasks",
+    "SWE-bench Pro (Scale AI): 17-25% on multi-file industrial tasks",
+    "COMPASS (Feb 2026): correctness + efficiency + quality as independent dimensions",
+    "LongCLI-Bench (Feb 2026): <20% on long-horizon CLI tasks"
+  ],
+  "configurations": [
+    {
+      "id": "v4-pipeline",
+      "name": "Full v4 Pipeline (Atomic + Enhanced CLAUDE.md v4 + GSD)",
+      "type": "with_skill",
+      "components": {
+        "claude_md": "CLAUDE-v3-enhanced.md (390 lines)",
+        "atomic_skill": "~/.claude/skills/atomic/ (981 lines across 6 files)",
+        "gsd": "v1.28.0 locally installed",
+        "skills_available": ["root-cause-analysis", "test-architect", "security-architect", "architect-review", "10 superpowers skills"]
+      }
+    },
+    {
+      "id": "gsd-only",
+      "name": "Raw GSD v1.28.0 (No CLAUDE.md, No Atomic)",
+      "type": "baseline",
+      "components": {
+        "claude_md": "none",
+        "atomic_skill": "none",
+        "gsd": "v1.28.0 locally installed",
+        "skills_available": "GSD built-in only"
+      }
+    },
+    {
+      "id": "dry-claudemd-v1",
+      "name": "Dry CLAUDE.md v1 (Original 561-line prompt, No GSD, No Atomic)",
+      "type": "baseline",
+      "components": {
+        "claude_md": "Original 561-line autonomous project execution prompt",
+        "atomic_skill": "none",
+        "gsd": "none",
+        "skills_available": "none"
+      }
+    }
+  ],
+  "task_prompt": "This is CrateSync — a partially-built Rust + TypeScript system for syncing package registries. The Rust backend (Axum) serves a REST API. The TypeScript CLI consumes it.\n\nYou need to:\n\n1. AUDIT: Assess the entire codebase across both languages. What works? What's broken? What's missing? Run `cargo test` and `npx tsc --noEmit` and analyze all failures. Create state tracking documents per your framework's methodology.\n\n2. FIX ALL BUGS: There are at least 4 bugs spanning Rust and TypeScript, including:\n   - A performance/correctness issue in the dependency resolver\n   - A cross-language type mismatch\n   - A concurrency deadlock\n   - A logic error in cycle detection\n   Find each, diagnose with file:line evidence, fix, and add regression tests.\n\n3. IMPLEMENT SEMVER RESOLUTION: The resolver currently ignores version constraints. Implement semver range matching (^, ~, >= <) so that resolve() returns the highest compatible version for each dependency.\n\n4. IMPLEMENT LOCKFILE: After resolution, generate a cratesync.lock file with exact resolved versions, integrity hashes, and dependency graph.\n\n5. IMPLEMENT CLI RESOLVE COMMAND: TypeScript command that calls the server's resolve endpoint, displays the dependency tree, and writes the lockfile locally.\n\nDo this in a disciplined, phased manner. Verify each step works across BOTH languages. Track your state. The Rust and TypeScript code must stay in sync.",
+  "ground_truth": {
+    "bugs": [
+      {
+        "id": "BUG-1",
+        "type": "performance_borrow",
+        "location": "crates/resolver/src/lib.rs",
+        "description": "Clone of entire cache on every recursive resolve call. Hides borrowing issue where HashMap is mutated while iterating over references.",
+        "fix": "Use entry API or restructure to avoid full clone. Drop lock before recursive call."
+      },
+      {
+        "id": "BUG-2",
+        "type": "cross_language_type_mismatch",
+        "location": "cli/src/protocol.ts",
+        "description": "Rust Version is {major,minor,patch} but TS defines {version: string}. Deserialization silently produces undefined fields.",
+        "fix": "Change TS Version to match Rust: {major: number, minor: number, patch: number}"
+      },
+      {
+        "id": "BUG-3",
+        "type": "async_deadlock",
+        "location": "crates/resolver/src/lib.rs",
+        "description": "resolve_recursive holds RwLock read, then fetch_from_registry tries to acquire write. Deadlocks on tokio runtime.",
+        "fix": "Release read lock before calling fetch, or restructure to avoid nested lock acquisition."
+      },
+      {
+        "id": "BUG-4",
+        "type": "cycle_detection_logic",
+        "location": "crates/resolver/src/lib.rs",
+        "description": "detect_cycles_dfs adds to visited AFTER processing children. Multi-root traversals skip already-visited nodes, missing cycles only reachable from later roots.",
+        "fix": "Move visited.insert before processing children, or remove visited set (use stack only)."
+      }
+    ],
+    "features_to_implement": [
+      "Semver range matching (^, ~, >=<) in resolver",
+      "Lockfile generation (cratesync.lock with resolved versions)",
+      "CLI resolve command (calls server, displays tree, writes lockfile)"
+    ]
+  },
+  "assertions": [
+    {"id": "A-1", "text": "Identifies clone/borrow performance issue in resolver", "category": "bug_finding", "weight": 2},
+    {"id": "A-2", "text": "Identifies Rust/TypeScript Version type mismatch", "category": "bug_finding", "weight": 2},
+    {"id": "A-3", "text": "Identifies async RwLock deadlock in resolver", "category": "bug_finding", "weight": 2},
+    {"id": "A-4", "text": "Identifies cycle detection off-by-one/multi-root issue", "category": "bug_finding", "weight": 2},
+    {"id": "A-5", "text": "Fixes borrow issue without breaking resolver correctness", "category": "bug_fixing", "weight": 3},
+    {"id": "A-6", "text": "Fixes type mismatch — Rust and TS Version types align", "category": "bug_fixing", "weight": 2},
+    {"id": "A-7", "text": "Fixes deadlock — concurrent resolution doesn't hang", "category": "bug_fixing", "weight": 3},
+    {"id": "A-8", "text": "Fixes cycle detection — multi-root cycles caught", "category": "bug_fixing", "weight": 2},
+    {"id": "A-9", "text": "Semver range matching implemented (^, ~, >=<)", "category": "implementation", "weight": 4},
+    {"id": "A-10", "text": "Lockfile generated with resolved versions", "category": "implementation", "weight": 3},
+    {"id": "A-11", "text": "CLI resolve command works end-to-end", "category": "implementation", "weight": 3},
+    {"id": "A-12", "text": "Rust/TS API contract stays aligned after all changes", "category": "implementation", "weight": 2},
+    {"id": "A-13", "text": "Regression tests added for each bug fix", "category": "process", "weight": 2},
+    {"id": "A-14", "text": "State documents include file:line evidence citations", "category": "process", "weight": 2},
+    {"id": "A-15", "text": "Work delivered in phases (not monolithic)", "category": "process", "weight": 1},
+    {"id": "A-16", "text": "cargo test passes after all changes", "category": "process", "weight": 1},
+    {"id": "A-17", "text": "tsc --noEmit passes after all changes", "category": "process", "weight": 1},
+    {"id": "A-18", "text": "Evidence packs or honest verification produced", "category": "process", "weight": 1},
+    {"id": "A-19", "text": "Scope discipline maintained (no unrequested features)", "category": "process", "weight": 1},
+    {"id": "A-20", "text": "No test-gaming (no hardcoded values, no weakened tests)", "category": "process", "weight": 1}
+  ],
+  "scoring": {
+    "total_possible": 40,
+    "categories": {
+      "bug_finding": {"assertions": ["A-1","A-2","A-3","A-4"], "max": 8},
+      "bug_fixing": {"assertions": ["A-5","A-6","A-7","A-8"], "max": 10},
+      "implementation": {"assertions": ["A-9","A-10","A-11","A-12"], "max": 12},
+      "process": {"assertions": ["A-13","A-14","A-15","A-16","A-17","A-18","A-19","A-20"], "max": 10}
+    }
+  }
+}

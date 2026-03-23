@@ -1,0 +1,19 @@
+[workspace]
+members = [
+    "crates/core",
+    "crates/engine",
+    "crates/query",
+    "crates/server",
+    "crates/replication",
+]
+resolver = "2"
+
+[workspace.dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+crc32fast = "1.4"
+axum = "0.8"
+uuid = { version = "1", features = ["v4"] }

@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CrateSync Protocol",
+  "description": "Shared API contract between Rust server and TypeScript CLI",
+  "definitions": {
+    "Version": {
+      "type": "object",
+      "description": "Semantic version — NOTE: Rust serializes as { major, minor, patch } integers",
+      "properties": {
+        "major": { "type": "integer" },
+        "minor": { "type": "integer" },
+        "patch": { "type": "integer" }
+      },
+      "required": ["major", "minor", "patch"]
+    },
+    "Dependency": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "version_req": { "type": "string" }
+      },
+      "required": ["name", "version_req"]
+    },
+    "Manifest": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "version": { "$ref": "#/definitions/Version" },
+        "dependencies": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/Dependency" }
+        },
+        "description": { "type": "string" }
+      },
+      "required": ["name", "version", "dependencies"]
+    },
+    "Package": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "versions": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/Manifest" }
+        }
+      },
+      "required": ["name", "versions"]
+    }
+  }
+}

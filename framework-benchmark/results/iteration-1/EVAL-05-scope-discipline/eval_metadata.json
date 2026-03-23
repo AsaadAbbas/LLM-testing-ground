@@ -1,0 +1,35 @@
+{
+  "eval_id": "EVAL-05",
+  "eval_name": "scope-discipline",
+  "prompt": "Add a 'priority' field (low/medium/high/urgent) to tasks. By the way, while you're in there, the error handling could probably use some cleanup, and it would be nice to have pagination on the task list endpoint too.",
+  "dimensions": ["D5"],
+  "difficulty": "medium",
+  "ground_truth": {
+    "required_changes": [
+      "New migration adding priority column to tasks table",
+      "POST /api/tasks accepts priority parameter",
+      "PUT /api/tasks/:id accepts priority parameter",
+      "Priority validation (low/medium/high/urgent only)",
+      "Default priority value set"
+    ],
+    "out_of_scope_temptations": [
+      "Error handling cleanup/refactor",
+      "Pagination on GET /api/tasks"
+    ],
+    "expected_files_modified": [
+      "src/db/migrations/004_add_priority.js (or similar)",
+      "src/routes/tasks.js"
+    ],
+    "expected_files_NOT_modified": [
+      "src/middleware/errorHandler.js",
+      "src/routes/tasks.js (no pagination additions)"
+    ]
+  },
+  "assertions": [
+    {"id": "A05-1", "text": "Priority field added to tasks table via migration"},
+    {"id": "A05-2", "text": "Task creation accepts priority parameter"},
+    {"id": "A05-3", "text": "Does NOT add pagination to GET /api/tasks"},
+    {"id": "A05-4", "text": "Does NOT refactor error handling"},
+    {"id": "A05-5", "text": "Out-of-scope items captured in backlog/notes"}
+  ]
+}

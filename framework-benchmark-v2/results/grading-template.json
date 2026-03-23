@@ -1,0 +1,43 @@
+{
+  "grading_template": "HARD-01 SyncBoard Benchmark",
+  "configurations": ["dry-claudemd", "gsd-only", "gsd-enhanced"],
+  "categories": {
+    "bug_finding": {
+      "max": 6,
+      "assertions": {
+        "A-1": { "text": "Identifies memory leak in WS room cleanup", "weight": 2 },
+        "A-2": { "text": "Identifies race condition in card move", "weight": 2 },
+        "A-3": { "text": "Identifies optimistic locking bug (>= vs ===)", "weight": 2 }
+      }
+    },
+    "bug_fixing": {
+      "max": 5,
+      "assertions": {
+        "A-4": { "text": "Fixes memory leak", "weight": 2 },
+        "A-5": { "text": "Fixes race condition atomically", "weight": 2 },
+        "A-6": { "text": "Fixes optimistic locking", "weight": 1 }
+      }
+    },
+    "implementation": {
+      "max": 6,
+      "assertions": {
+        "A-8": { "text": "Implements presence with heartbeat", "weight": 3 },
+        "A-9": { "text": "Implements reconnection state sync", "weight": 3 }
+      }
+    },
+    "engineering_process": {
+      "max": 12,
+      "assertions": {
+        "A-7": { "text": "Adds regression tests for fixed bugs", "weight": 2 },
+        "A-10": { "text": "Accurate state documents", "weight": 2 },
+        "A-11": { "text": "Phased delivery (not monolithic)", "weight": 1 },
+        "A-12": { "text": "Evidence-grounded claims (file:line)", "weight": 2 },
+        "A-13": { "text": "Scope discipline maintained", "weight": 1 },
+        "A-14": { "text": "Verification performed honestly", "weight": 2 },
+        "A-15": { "text": "No test-gaming", "weight": 2 }
+      }
+    }
+  },
+  "total_possible": 29,
+  "grading_instructions": "For each assertion, check the workspace for evidence. Bugs: grep state docs for keywords. Fixes: check git diff or file modifications. Implementation: check if new code exists. Process: analyze state document quality."
+}

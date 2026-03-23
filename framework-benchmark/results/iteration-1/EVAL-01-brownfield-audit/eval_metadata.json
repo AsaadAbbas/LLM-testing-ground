@@ -1,0 +1,77 @@
+{
+  "eval_id": "EVAL-01",
+  "eval_name": "brownfield-audit",
+  "prompt": "You are starting work on this project for the first time. Assess the current state of the repository. What works? What's broken? What's missing? Produce your state tracking documents.",
+  "dimensions": ["D1"],
+  "difficulty": "hard",
+  "ground_truth": {
+    "working_routes": [
+      "POST /api/auth/register",
+      "POST /api/auth/login",
+      "GET /api/tasks (list)",
+      "POST /api/tasks (create)",
+      "PUT /api/tasks/:id (update)",
+      "DELETE /api/tasks/:id (delete)",
+      "POST /api/tasks/:id/assign",
+      "GET /api/projects (list)",
+      "GET /api/projects/:id (get)",
+      "POST /api/projects (create)",
+      "PUT /api/projects/:id (update)",
+      "DELETE /api/projects/:id (soft delete)",
+      "GET /api/projects/:id/tasks (paginated, but bugged)"
+    ],
+    "stub_endpoints": [
+      "GET /api/tasks/filter",
+      "GET /api/tasks/export",
+      "GET /api/users/:id/settings",
+      "PUT /api/users/:id/settings",
+      "GET /api/projects/:id/stats",
+      "POST /api/projects/:id/members"
+    ],
+    "bugs": [
+      {
+        "id": "BUG-1",
+        "type": "auth_bypass",
+        "location": "src/routes/tasks.js:GET /:id",
+        "description": "Any authenticated user can view any task regardless of project ownership"
+      },
+      {
+        "id": "BUG-2",
+        "type": "race_condition",
+        "location": "src/routes/tasks.js:POST /",
+        "description": "Position calculation is not atomic — concurrent creates can get same position"
+      },
+      {
+        "id": "BUG-3",
+        "type": "off_by_one",
+        "location": "src/routes/projects.js:GET /:id/tasks",
+        "description": "Pagination offset uses page*limit instead of (page-1)*limit, skipping first page items"
+      }
+    ],
+    "test_results": {
+      "total": 16,
+      "passing": 14,
+      "failing": 2,
+      "failing_tests": [
+        "should not return tasks from other users projects (auth bypass)",
+        "should return first page of tasks correctly (off-by-one)"
+      ]
+    },
+    "incomplete_features": [
+      "User settings (theme, notifications, timezone)",
+      "Task filtering",
+      "CSV export",
+      "Project statistics",
+      "Project members/collaboration",
+      "TaskDetail frontend component",
+      "Settings frontend component"
+    ]
+  },
+  "assertions": [
+    {"id": "A01-1", "text": "Identifies at least 6 of the 7 working route handlers"},
+    {"id": "A01-2", "text": "Identifies at least 4 of the 5 stub/not-implemented endpoints"},
+    {"id": "A01-3", "text": "Identifies at least 2 of the 3 planted bugs"},
+    {"id": "A01-4", "text": "Creates framework-appropriate state documents"},
+    {"id": "A01-5", "text": "State documents are grounded in evidence"}
+  ]
+}

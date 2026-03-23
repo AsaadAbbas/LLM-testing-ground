@@ -1,0 +1,14 @@
+[package]
+name = "chronokv-engine"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+chronokv-core = { path = "../core" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+crc32fast = { workspace = true }
+uuid = { workspace = true }

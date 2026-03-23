@@ -1,0 +1,72 @@
+{
+  "name": "chronokv-api",
+  "version": "0.1.0",
+  "description": "ChronoKV API protocol definition shared between Rust server and TypeScript SDK",
+  "endpoints": {
+    "PUT /api/v1/kv/:key": {
+      "description": "Store a value for a key",
+      "request": {
+        "body": {
+          "key": "string",
+          "value": "byte array (number[])",
+          "ttl": "optional number (seconds)"
+        }
+      },
+      "response": {
+        "key": "string",
+        "timestamp": "number (time since epoch)"
+      }
+    },
+    "GET /api/v1/kv/:key": {
+      "description": "Get the latest value for a key",
+      "response": {
+        "key": "string",
+        "value": "byte array (number[])",
+        "timestamp": "number (time since epoch)",
+        "version": "number"
+      }
+    },
+    "DELETE /api/v1/kv/:key": {
+      "description": "Delete a key (writes tombstone)",
+      "response": {
+        "key": "string",
+        "timestamp": "number (time since epoch)"
+      }
+    },
+    "GET /api/v1/query": {
+      "description": "Query entries with time range and prefix filtering",
+      "params": {
+        "start": "optional number (timestamp)",
+        "end": "optional number (timestamp)",
+        "limit": "optional number",
+        "prefix": "optional string"
+      },
+      "response": {
+        "entries": "GetResponse[]",
+        "total_count": "number"
+      }
+    },
+    "GET /api/v1/health": {
+      "description": "Health check",
+      "response": {
+        "status": "string",
+        "version": "string"
+      }
+    }
+  },
+  "timestamp_format": {
+    "note": "Timestamps represent time since Unix epoch. See server and SDK implementations for exact format."
+  },
+  "websocket": {
+    "endpoint": "ws://localhost:3000/ws",
+    "messages": {
+      "subscribe": { "action": "subscribe", "key": "string" },
+      "unsubscribe": { "action": "unsubscribe", "key": "string" },
+      "change_event": {
+        "key": "string",
+        "timestamp": "number",
+        "event_type": "string"
+      }
+    }
+  }
+}

@@ -1,0 +1,221 @@
+{
+  "benchmark_name": "framework-pipeline-v4",
+  "description": "3-way pipeline eval: Full v4 (Atomic+CLAUDE.md+GSD) vs Raw GSD vs Dry CLAUDE.md v1. ChronoKV: Rust+TypeScript time-series KV store with 7 unlabeled bugs + 4 cross-cutting features.",
+  "version": "4.0.0",
+  "difficulty": "FeatureBench-zone (target <40% best config score)",
+  "test_project": "ChronoKV — Rust workspace (5 crates) + TypeScript SDK/CLI for time-series KV store",
+  "research_basis": [
+    "FeatureBench (ICLR 2026, arXiv:2602.10975): 11% pass for frontier models; avg 790 LOC, 15.7 files per task",
+    "SWE-bench Verified: 80.9% (Claude Code); Pro: 23.3% — difficulty gap is realism",
+    "ProjDevBench (arXiv:2602.01655): 27% acceptance; struggles with system design",
+    "METR HCAST (metr.org/time-horizons): <10% success at 4h+ human time; Opus 4.5 horizon ~4h",
+    "Terminal-Bench 2.0: 50% ceiling; 16% on hard tasks",
+    "Anthropic Context Engineering (anthropic.com/engineering): context rot, Write/Select/Compress/Isolate",
+    "OpenDev (arXiv:2603.05344): defense-in-depth safety; hook enforcement",
+    "DependEval (ACL 2025): cross-file dependency is #1 LLM failure mode",
+    "GSD Framework (github.com/gsd-build/get-shit-done): wave-based parallel execution; .planning/ state",
+    "Aider Polyglot: 225 exercises across 6 languages; multi-language difficulty"
+  ],
+  "difficulty_factors": [
+    "7 unlabeled bugs (no BUG #N comments — must discover through analysis)",
+    "3 compounding bug pairs (can't fix in isolation)",
+    "4 cross-cutting features (each spans 3-5 modules)",
+    "19 source files, 2625 LOC",
+    "Cross-language (Rust + TypeScript) with timestamp serialization mismatch",
+    "Semantic bugs that don't cause compilation errors",
+    "Pre-written tests that pass despite bugs (tests for wrong reasons)"
+  ],
+  "configurations": [
+    {
+      "id": "v4-pipeline",
+      "name": "Full v4 Pipeline (Atomic + Enhanced CLAUDE.md v4 + GSD)",
+      "type": "with_skill",
+      "components": {
+        "claude_md": "CLAUDE-v3-enhanced.md (392 lines, 17 sections)",
+        "atomic_skill": "~/.claude/skills/atomic/ (6 files, 981 lines)",
+        "atomic_hook": ".claude/hooks/atomic-gate.js (complexity gate)",
+        "gsd": "v1.28.0 locally installed",
+        "skills_available": ["root-cause-analysis", "test-architect", "security-architect", "architect-review", "10 superpowers skills"]
+      }
+    },
+    {
+      "id": "gsd-only",
+      "name": "Raw GSD v1.28.0 (No CLAUDE.md, No Atomic)",
+      "type": "baseline",
+      "components": {
+        "claude_md": "none",
+        "atomic_skill": "none",
+        "atomic_hook": "none",
+        "gsd": "v1.28.0 locally installed",
+        "skills_available": "GSD built-in only"
+      }
+    },
+    {
+      "id": "dry-claudemd-v1",
+      "name": "Dry CLAUDE.md v1 (Original 561-line prompt, No GSD, No Atomic)",
+      "type": "baseline",
+      "components": {
+        "claude_md": "Original 561-line autonomous project execution prompt",
+        "atomic_skill": "none",
+        "atomic_hook": "none",
+        "gsd": "none",
+        "skills_available": "none"
+      }
+    }
+  ],
+  "task_prompt": "Hey, I've got this ChronoKV project — it's a time-series key-value store written in Rust with a TypeScript SDK and CLI. It's supposed to support versioned entries, time-range queries, and leader-follower replication.\n\nThe thing is, something's really off. Users are reporting weird behavior:\n- Sometimes reads return old data even after a successful write\n- After server restarts, some entries seem to have wrong timestamps\n- Time-range queries work sometimes but miss data other times, especially data written very recently\n- We had a user delete some entries and they came back after a while\n- Followers seem to get stuck and never catch up to the leader\n- The TypeScript SDK's time range queries always return empty for recent data\n- We're seeing memory growth over time when clients connect/disconnect\n\nOn top of the bugs, we need to ship 4 features:\n- TTL support (auto-expire entries after a configurable duration)\n- Batch write API (atomic multi-key writes, all-or-nothing)\n- Query aggregations (MIN, MAX, AVG, COUNT, SUM over time ranges)\n- Follower read routing (let read queries go to followers for scale)\n\nThe codebase is Rust workspace + TypeScript. Fix all the bugs, implement the features, make sure everything works end-to-end across both languages. Add regression tests. Track your work somehow.",
+  "ground_truth": {
+    "bugs": [
+      {
+        "id": "BUG-1",
+        "type": "wal_checksum_omission",
+        "location": "crates/engine/src/wal.rs:compute_checksum()",
+        "description": "CRC32 checksum only covers entry.value payload, NOT the header fields (key, timestamp, op_type). Recovery can accept entries with corrupted timestamps/keys if the value data is intact.",
+        "symptom": "After crash recovery, some entries have wrong timestamps — version ordering violated.",
+        "fix": "Include key, timestamp, and op_type in the checksum computation."
+      },
+      {
+        "id": "BUG-2",
+        "type": "memtable_version_ordering",
+        "location": "crates/engine/src/memtable.rs:get_latest()",
+        "description": "get_latest() uses .next() (first entry in ascending BTreeMap range) instead of .last(). Returns OLDEST version of a key, not the newest.",
+        "symptom": "Reads return stale data even after a successful write.",
+        "fix": "Change .next() to .last() to return the entry with the highest timestamp.",
+        "compounds_with": "BUG-1"
+      },
+      {
+        "id": "BUG-3",
+        "type": "compaction_tombstone_drop",
+        "location": "crates/engine/src/compaction.rs:compact()",
+        "description": "Tombstone retention check uses entry.timestamp (creation time) instead of entry.deleted_at (deletion time). Old entries deleted recently get tombstones dropped prematurely.",
+        "symptom": "Deleted keys 'resurrect' after compaction runs.",
+        "fix": "Use entry.deleted_at.unwrap_or(entry.timestamp) for the age comparison.",
+        "compounds_with": "BUG-4"
+      },
+      {
+        "id": "BUG-4",
+        "type": "time_range_boundary_mismatch",
+        "location": "crates/engine/src/memtable.rs:scan() vs crates/core/src/lib.rs:TimeRange::contains()",
+        "description": "Query layer (TimeRange::contains) uses inclusive end (ts <= end), but memtable scan uses exclusive end (ts < end). Same query returns different results depending on data location.",
+        "symptom": "Time-range queries miss boundary data inconsistently.",
+        "fix": "Make both layers consistent (either both inclusive or both exclusive).",
+        "compounds_with": "BUG-3"
+      },
+      {
+        "id": "BUG-5",
+        "type": "replication_catchup_wrong_term",
+        "location": "crates/replication/src/lib.rs:handle_catch_up()",
+        "description": "Leader sends CatchUpResponse with the ORIGINAL commit term of entries, not the current term. Follower rejects as stale because its current term is higher.",
+        "symptom": "Followers that fall behind can never catch up — permanently stale.",
+        "fix": "Use current_term instead of the original commit term in the response.",
+        "compounds_with": "BUG-6"
+      },
+      {
+        "id": "BUG-6",
+        "type": "timestamp_serialization_mismatch",
+        "location": "crates/server/src/routes.rs → sdk/src/types.ts",
+        "description": "Rust serializes timestamps as seconds since epoch (f64). TypeScript SDK parses as milliseconds (JavaScript Date convention). All timestamps off by 1000x.",
+        "symptom": "TypeScript SDK time-range queries always return empty for recent data.",
+        "fix": "Either multiply by 1000 in Rust, or divide by 1000 in TypeScript.",
+        "compounds_with": "BUG-5"
+      },
+      {
+        "id": "BUG-7",
+        "type": "websocket_subscription_leak",
+        "location": "crates/server/src/ws.rs:notify()",
+        "description": "When send fails (client disconnected), spawned retry task holds Arc<SubscriptionMap> reference during 5-retry exponential backoff. Orphaned tasks accumulate.",
+        "symptom": "Memory grows with each connect/disconnect cycle.",
+        "fix": "Don't retry on disconnected clients. Remove subscription immediately on first send failure."
+      }
+    ],
+    "compounding_pairs": [
+      {
+        "bugs": ["BUG-1", "BUG-2"],
+        "relationship": "Even if WAL recovery is fixed (BUG-1), recovered entries STILL have wrong ordering because memtable sorts timestamps ascending (BUG-2). Both must be fixed for correct version semantics."
+      },
+      {
+        "bugs": ["BUG-3", "BUG-4"],
+        "relationship": "Two independent paths to the same symptom: deleted keys reappear. BUG-3 drops tombstones too early, BUG-4 misses boundary data. Agent must recognize these as SEPARATE bugs."
+      },
+      {
+        "bugs": ["BUG-5", "BUG-6"],
+        "relationship": "Even if replication catch-up is fixed (BUG-5), replicated data has wrong timestamps from the serialization mismatch (BUG-6). End-to-end verification requires fixing BOTH."
+      }
+    ],
+    "features_to_implement": [
+      {
+        "name": "TTL support",
+        "files_affected": ["core (TTL field)", "engine (compaction+WAL)", "query (filter)", "server (API)", "sdk (method)"],
+        "difficulty": "cross-cutting, interacts with BUG-3 compaction"
+      },
+      {
+        "name": "Batch writes",
+        "files_affected": ["engine (batch WAL+memtable)", "server (endpoint)", "sdk (builder)", "middleware (rate limit)"],
+        "difficulty": "transactional semantics, interacts with BUG-1 WAL format"
+      },
+      {
+        "name": "Query aggregations",
+        "files_affected": ["query (pipeline)", "server (endpoint)", "sdk (query builder)"],
+        "difficulty": "algorithmic, interacts with BUG-4 boundary"
+      },
+      {
+        "name": "Follower read routing",
+        "files_affected": ["replication (follower state)", "server (routing)", "sdk (discovery)"],
+        "difficulty": "architectural decision required, interacts with BUG-5 stale followers"
+      }
+    ]
+  },
+  "assertions": [
+    {"id": "A-1", "category": "bug_finding", "text": "Identifies WAL checksum omission", "weight": 2},
+    {"id": "A-2", "category": "bug_finding", "text": "Identifies memtable version ordering bug", "weight": 2},
+    {"id": "A-3", "category": "bug_finding", "text": "Identifies compaction tombstone drop", "weight": 2},
+    {"id": "A-4", "category": "bug_finding", "text": "Identifies time-range boundary mismatch", "weight": 2},
+    {"id": "A-5", "category": "bug_finding", "text": "Identifies replication catch-up wrong term", "weight": 2},
+    {"id": "A-6", "category": "bug_finding", "text": "Identifies timestamp serialization mismatch", "weight": 2},
+    {"id": "A-7", "category": "bug_finding", "text": "Identifies WebSocket subscription leak", "weight": 2},
+    {"id": "B-1", "category": "bug_fixing", "text": "Fixes WAL checksum to include header", "weight": 3},
+    {"id": "B-2", "category": "bug_fixing", "text": "Fixes memtable ordering (last instead of next)", "weight": 3},
+    {"id": "B-3", "category": "bug_fixing", "text": "Fixes compaction tombstones (uses deleted_at)", "weight": 3},
+    {"id": "B-4", "category": "bug_fixing", "text": "Fixes time-range boundary consistency", "weight": 2},
+    {"id": "B-5", "category": "bug_fixing", "text": "Fixes replication catch-up term", "weight": 3},
+    {"id": "B-6", "category": "bug_fixing", "text": "Fixes timestamp serialization alignment", "weight": 2},
+    {"id": "B-7", "category": "bug_fixing", "text": "Fixes WebSocket subscription leak", "weight": 2},
+    {"id": "B-8", "category": "bug_fixing", "text": "Handles Bug 1+2 compound (both fixed for correct versioning)", "weight": 3},
+    {"id": "B-9", "category": "bug_fixing", "text": "Handles Bug 3+4 compound (recognizes two paths to resurrection)", "weight": 3},
+    {"id": "C-1", "category": "feature", "text": "TTL support end-to-end (Rust + TypeScript)", "weight": 5},
+    {"id": "C-2", "category": "feature", "text": "Batch writes with atomicity guarantee", "weight": 5},
+    {"id": "C-3", "category": "feature", "text": "Query aggregations working across time ranges", "weight": 5},
+    {"id": "C-4", "category": "feature", "text": "Follower read routing with consistency level", "weight": 5},
+    {"id": "D-1", "category": "process_decomposition", "text": "Structured task breakdown created BEFORE coding", "weight": 3},
+    {"id": "D-2", "category": "process_decomposition", "text": "Breakdown identifies all 11 work items", "weight": 2},
+    {"id": "D-3", "category": "process_decomposition", "text": "Tasks have per-task context with file:line citations", "weight": 3},
+    {"id": "D-4", "category": "process_planning", "text": "Phase-based execution plan created", "weight": 2},
+    {"id": "D-5", "category": "process_planning", "text": "State tracking documents with honest progress", "weight": 2},
+    {"id": "D-6", "category": "process_planning", "text": "Evidence packs or verification documents per work unit", "weight": 2},
+    {"id": "D-7", "category": "process_execution", "text": "Pre-coding gates observed (repo health check)", "weight": 2},
+    {"id": "D-8", "category": "process_execution", "text": "Test-first development (RED before GREEN)", "weight": 2},
+    {"id": "D-9", "category": "process_execution", "text": "Fairness audit evidence", "weight": 2},
+    {"id": "D-10", "category": "process_execution", "text": "Cross-language contract verification", "weight": 2},
+    {"id": "E-1", "category": "technical", "text": "Regression tests for each bug fix (>=7 new tests)", "weight": 3},
+    {"id": "E-2", "category": "technical", "text": "Tests actually catch bugs (not tautological)", "weight": 3},
+    {"id": "E-3", "category": "technical", "text": "cargo test passes after all changes", "weight": 2},
+    {"id": "E-4", "category": "technical", "text": "tsc --noEmit passes after all changes", "weight": 2},
+    {"id": "E-5", "category": "technical", "text": "cargo clippy clean (0 warnings)", "weight": 2},
+    {"id": "E-6", "category": "technical", "text": "No test-gaming", "weight": 2},
+    {"id": "E-7", "category": "technical", "text": "Scope discipline maintained", "weight": 2},
+    {"id": "E-8", "category": "technical", "text": "Compounding bugs handled correctly", "weight": 2},
+    {"id": "E-9", "category": "technical", "text": "New features interact correctly with bug fixes", "weight": 2}
+  ],
+  "scoring": {
+    "total_possible": 100,
+    "categories": {
+      "bug_finding": {"assertions": ["A-1","A-2","A-3","A-4","A-5","A-6","A-7"], "max": 14},
+      "bug_fixing": {"assertions": ["B-1","B-2","B-3","B-4","B-5","B-6","B-7","B-8","B-9"], "max": 24},
+      "feature": {"assertions": ["C-1","C-2","C-3","C-4"], "max": 20},
+      "process_decomposition": {"assertions": ["D-1","D-2","D-3"], "max": 8},
+      "process_planning": {"assertions": ["D-4","D-5","D-6"], "max": 6},
+      "process_execution": {"assertions": ["D-7","D-8","D-9","D-10"], "max": 8},
+      "technical": {"assertions": ["E-1","E-2","E-3","E-4","E-5","E-6","E-7","E-8","E-9"], "max": 20}
+    }
+  }
+}
